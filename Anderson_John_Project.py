@@ -160,7 +160,7 @@ Sol[1:-1,0]=TPFF(Sol[1:-1,1],Sol[1:-1,2],v,dx)
 #first im gonna define the Tridiagonal elements, which are the constants from the Crank Nicolson Scheme
 
 #also a delta t, and I geuss a D
-dt=0.001
+dt=0.005
 D=1
 #and dx=dy
 mu=D*dt/(dx*dx)
@@ -242,7 +242,8 @@ Sol_next[1:-1,0]=thomas_alg_func(av_b,bv_b,cv_b,rhs_b)
 
 #now for the next ones, u(j,k) for for j=1,2...N and k=1,2...N)
 
-for j in range(1,N+1):   
+for j in range(1,N+1): 
+#for j in range(1,15):  
 #just redifining rhs_every time ever for now while im still trouble shooting   
     rhs_b=np.ones((N))  
 #Okay I think that just fixed it, I still had N+1 right there! Lets hope so
@@ -267,9 +268,21 @@ for j in range(1,N+1):
 #I dont think there was any issue. I got rid of the s and m indices and went back to j and k    
     
 #you know what maybe advancing the time will make it better.
-#but lets first double check all the ADI part A stuff.    
+#but lets first double check all the ADI part A stuff.  
+fig, ax = plt.subplots()
+plt.grid(1)
 #plt.plot(y,Sol[4,:],'-.c')
 #plt.plot(y,HVM[4,:],':r')
 #plt.plot(y,Sol_next[4,:],'-b')
-    
+plt.plot(y,Sol_next[:,0],'-b') 
+plt.plot(y,Sol_next[:,1],':r')
 #    right now I think the issue is in the last equation, the u(N,k) equation
+ax.legend(['u(0,y,t^n+1)','u(x_1,y,t^n+1)'])
+plt.xlabel('y')
+plt.ylabel('u(x,y,t)')
+#ax.title.set_text('Bottom boundary condition and u(x,y_1,t^n+1) \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+#                   %(round(dx,4),round(dt,4),round(mu,4)))  
+#ax.title.set_text('Right boundary condition and u(x_N,y,t^n+1) \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+#                   %(round(dx,4),round(dt,4),round(mu,4)))
+ax.title.set_text('u(0,y,t^n+1) and u(x_1,y,t^n+1) \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+                   %(round(dx,4),round(dt,4),round(mu,4)))    
