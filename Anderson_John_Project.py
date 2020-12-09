@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun Nov 22 11:01:42 2020
-
 @author: johna
 """
 
@@ -107,9 +106,9 @@ def RIGHT(y, a_x, a_y, b_x, b_y):
 
 #Number of discretized points
 #Number of internal x points
-N_x=8    
+N_x=144
 #Number of internal y points
-N_y=8
+N_y=144
 #just using the same number of points for x and y beccareful with this. i will have to go back and change later...maybe    
 N=N_x
     
@@ -129,11 +128,11 @@ Sol = np.ones((len_x,len_y))
 #Sol[:,0]
 #Right
 Sol[:,-1]=RIGHT(y, a_x, a_y, b_x, b_y)
-#Bottom
+##Bottom
 Sol[0,:]=given_g(x, a_x)
-#Top
+##Top
 Sol[-1,:]=given_f(x, a_x)
-#Applying Initial condiots
+##Applying Initial condiots
 Sol[1:-1,1:-1]=Uo
 
 #And i will do that right now...
@@ -144,6 +143,7 @@ def TPFF(col1,col2,v,dx):
     col0=np.ones(N)
     for k in range(0,N):
         col0[k]=-3*col1[k]+4*col2[k]+v*2*dx
+#        col0[k]=1*k+k*k/N+1.75
     return col0
 
 ##now I will define Sol_next, using copy()
@@ -160,7 +160,7 @@ Sol[1:-1,0]=TPFF(Sol[1:-1,1],Sol[1:-1,2],v,dx)
 #first im gonna define the Tridiagonal elements, which are the constants from the Crank Nicolson Scheme
 
 #also a delta t, and I geuss a D
-dt=0.1
+dt=0.001
 D=1
 #and dx=dy
 mu=D*dt/(dx*dx)
@@ -174,69 +174,61 @@ d=(1-mu)
 # ADI-Method
 # =============================================================================
 #Half value matrix, for u(t=n+1/2)
-#Wait I should really change this HVM to be the same size as Sol, with the boundary conditions already applied
 HVM=Sol.copy()
 #its quicker just to make a copy rather tahn define a blank matrix and reapply the boundary conditions to the half value matrix
-#Step "A":The t=n to t=n+ 1/2 step.
+#
+# =============================================================================
+# #Step "A":The t=n to t=n+ 1/2 step
+# =============================================================================
 rhs_a=np.ones(N+1)
 #rhs for step a is (N+1) because of the ghost node
 
 
-#Pre thomas algorithm set upo
+#Pre thomas algorithm set up
 #okay, the a,b,c and vectors, (N+1) because of ghost node
 #its fine that these are lists and not real numpy arrays
 #these dont change
 av= [a]*(N+1)
 bv= [b]*(N+1)
 #different first input because of ghost node
-bv[0]=b+c
+#bv[0]=b+c
 cv= [c]*(N+1)
+#this actually needs to be cv[0], that shouldnt be the issue though
+cv[0]=b+c
 
-for m in range(0,N):
+#need to do this N times, for k=1,2..N
+#okay, this is why I was confused before, In the step B I have j as my outter loop index
+#and in step A I have k as my outter loop index.
+#I still need to call the correct elemetns though, it will just be different for both steps
 
-#filling in the rhs vector   
-#Really i can just writre over the values as we go and define outside the loop  
-#I swiched to s and m rather than j adn k because i was getting confused for some reason before
-#Now I wanna switcfh back
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#  keep for now, I dont like this any more
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#I wanna use j,k for sol and HVM, 
-#and then do things like rhs[j-1} becasue rhs is only internal points     
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#but for now I will just redefine    
+
+for k in range(1,N+1):
+##for now I will just redefine inside for troubleshooting purposes    
     rhs_a = np.ones(N+1)
-#first eq different    
-    rhs_a[0] = -b*Sol[m, 0] + d*Sol[m+1, 0] - c*Sol[m+2, 0]
-#middle eqs
-    for s in range(1, N):
-        rhs_a[s] = -b*Sol[m, s] + d*Sol[m+1, s] - c*Sol[m+2, s]
-#last eq different
-    rhs_a[-1] = -b*Sol[m,-2] + d*Sol[m+1,-2] - c*Sol[m+2,-2] - c*Sol[1+m,-1]     
-    HVM[m+1,0:-1]=thomas_alg_func(av,bv,cv,rhs_a)
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+##first eq different    
+    rhs_a[0] = -b*Sol[k-1, 0] + d*Sol[k, 0] - c*Sol[k+1, 0]
+    ##middle eqs
+    for j in range(1, N):
+        rhs_a[j] = -b*Sol[k-1, j] + d*Sol[k, j] - c*Sol[k+1, j]
+##last eq different
+    rhs_a[-1] = -b*Sol[k-1,-2] + d*Sol[k,-2] - c*Sol[k+1,-2] - c*HVM[k,-1]   
+    HVM[k,0:-1]=thomas_alg_func(av,bv,cv,rhs_a)
 #right now, this all the n+1/2 values,
-#the N+1 half point values can be gotten from the Sol matrix, they are right endpoints
-#same with bottom and top 
 
-#now, rhs_b is composed from these t= n+1/2 (half vals) 
-#I need to pay close attention to the order here. Which is why i stored them in that matrix.
-#I am filling up the t=n+1 matrix column by column
     
-#Step "B" the t=n+1/2 to t=n+1
-#okay rhs b still is N long, I just need to do the steps N+1 one times
+# =============================================================================
+# #Step "B" the t=n+1/2 to t=n+1
+# =============================================================================
+#!must solve one column at a time to preserve tridiagonal structure
+#rhs_b is composed from these t= n+1/2 (half vals) 
+rhs_b=np.ones(N)
+
+#okay rhs b still is N long, I just need to do the steps N+1 one times    
 #which means I need to redine my or make new thomas algorith vectors. I will just make new ones.
 av_b= [a]*(N)
 bv_b= [b]*(N)
-#different first input because of ghost node
 cv_b= [c]*(N)    
     
-#I can either to it one column at a time or do them all at once.
-#    and I am solving for the u(x=0,k) points as well, so (N+1) by N for I make one long vector
-#rhs_b=np.ones((N+1)*N)    
-#lets just do one row right now
-rhs_b=np.ones(N)
 #first all the u(0,k) for k=1,2...N) really its Ny, I need to be careful here I was just using N above       
 #these are a little different because of the ghost node.
 #first equation different
@@ -247,14 +239,15 @@ for k in range(2, N):
 #last equation different
     rhs_b[-1]= -(b + c)*HVM[N, 1] + d*HVM[N, 0] - c*Sol_next[N+1,0]
 Sol_next[1:-1,0]=thomas_alg_func(av_b,bv_b,cv_b,rhs_b)
-    
-#before I changed the indexes to m and s, because I didnt like seeing A[k,j] for example
-#but now I find it more confusing
-#Im gonna switch back to j and k, even though k will will come before j
 
-#now for the next ones, In a loop 
-rhs_b=np.ones((N+1))
-for j in range(1,N+1):      
+#now for the next ones, u(j,k) for for j=1,2...N and k=1,2...N)
+
+for j in range(1,N+1):   
+#just redifining rhs_every time ever for now while im still trouble shooting   
+    rhs_b=np.ones((N))  
+#Okay I think that just fixed it, I still had N+1 right there! Lets hope so
+#No that wasnt it. For large N this is Wrong, the behavior near the Boundaries isnt what I would expect
+#maybe advancing the time much further will solve the problem but I dont think so    
 #first equation different
     rhs_b[0]= -b*HVM[k, j-1] + d*HVM[k, j] - c*HVM[k, j+1] -b*Sol_next[k-1, j]
 #middle eqs
@@ -263,3 +256,20 @@ for j in range(1,N+1):
 #last equation different
     rhs_b[-1]= -b*HVM[k, j-1] + d*HVM[k, j] - c*HVM[k, j+1]-c*Sol_next[k-1, j]
     Sol_next[1:-1,j]=thomas_alg_func(av_b,bv_b,cv_b,rhs_b)
+#    
+#okay the issue is in the HVM, the values just arent correct. I will find what is wrong.
+#maybe not the middle values all approach zero    
+#but they are doing it way to quickly, the 2nd row and the penultimate row seem okay I guess
+#but the 3rd row and the 3rd to last row go to zero way too quickly for many differetn N's
+#it may be a coding error or maybe I appleid the scheme wrong :( :( ;(
+#it could be that three point forward method messing me up 
+
+#I dont think there was any issue. I got rid of the s and m indices and went back to j and k    
+    
+#you know what maybe advancing the time will make it better.
+#but lets first double check all the ADI part A stuff.    
+#plt.plot(y,Sol[4,:],'-.c')
+#plt.plot(y,HVM[4,:],':r')
+#plt.plot(y,Sol_next[4,:],'-b')
+    
+#    right now I think the issue is in the last equation, the u(N,k) equation
