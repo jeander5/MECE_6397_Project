@@ -234,7 +234,7 @@ cv_b= [c]*(N)
 #first equation different
 rhs_b[0]= -b*(HVM[1, 1]+2*dx*v) + d*HVM[1, 0] - c*HVM[1, 1] -b*Sol_next[0,0]
 #middle eqs
-for k in range(2, N+1):
+for k in range(2, N):
     rhs_b[k-1] = -b*(HVM[k, 1]+2*dx*v) + d*HVM[k, 0] - c*HVM[k, 1]
 #last equation different
     rhs_b[-1]= -b*(HVM[N, 1]+2*dx*v) + d*HVM[N, 0] - c*HVM[N, 1] - c*Sol_next[N+1,0]
@@ -242,7 +242,25 @@ Sol_next[1:-1,0]=thomas_alg_func(av_b,bv_b,cv_b,rhs_b)
 
 #now for the next ones, u(j,k) for for j=1,2...N and k=1,2...N)
 
-for j in range(1,N+1): 
+
+#OKAY YES! This is now behaving as I was expecting. It was part a coding issue and part my own fault.
+#I had seperate parts for j=0 and j=1:N, and I think they both had a slight error in them. In one sectioon I wasnt
+#doing the k for 2,N and in the other I was doing 2,N+1 and rewriting over it.
+#The issue was I was using k as an idex in that first equation,  where k was still set to N from the previous loop ayayayayay
+#THAT WAS AN ISSUE
+#okay also wait now with out the sperate first part my u90,j) values dont look so hot. ah because im going j-1 which is accesing
+#the right boundary conditions,
+#So i either need to recode this or keep the two seperate, One for j=0, and one for j=1;N
+
+
+for j in range(1,N+1):
+# =============================================================================
+#     VERY IMPORTANT THIS NEXT LINE! AMATUER ISSUE BUT I FORGOT IT.
+#    ALWAYS PAY ATTENTION TO YOUR INDICES YOU JABRONI!
+# =============================================================================
+#!!!!!!!!!!
+    k=1
+#k needs to be reset to one before applying that first equation.    
 #for j in range(1,15):  
 #just redifining rhs_every time ever for now while im still trouble shooting   
     rhs_b=np.ones((N))  
@@ -252,10 +270,10 @@ for j in range(1,N+1):
 #first equation different
     rhs_b[0]= -b*HVM[k, j-1] + d*HVM[k, j] - c*HVM[k, j+1] -b*Sol_next[k-1, j]
 #middle eqs
-    for k in range(2, N+1):
+    for k in range(2, N):
         rhs_b[k-1] = -b*HVM[k, j-1] + d*HVM[k, j] - c*HVM[k, j+1]
 #last equation different
-    rhs_b[-1]= -b*HVM[k, j-1] + d*HVM[k, j] - c*HVM[k, j+1]-c*Sol_next[k-1, j]
+    rhs_b[-1]= -b*HVM[N, j-1] + d*HVM[N, j] - c*HVM[N, j+1]-c*Sol_next[N+1, j]
     Sol_next[1:-1,j]=thomas_alg_func(av_b,bv_b,cv_b,rhs_b)
 #    
 #okay the issue is in the HVM, the values just arent correct. I will find what is wrong.
