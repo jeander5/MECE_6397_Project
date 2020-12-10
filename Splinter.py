@@ -232,17 +232,18 @@ cv_b= [c]*(N)
 #first all the u(0,k) for k=1,2...N) really its Ny, I need to be careful here I was just using N above       
 #these are a little different because of the ghost node.
 #first equation different
-rhs_b[0]= -b*(HVM[1, 1]+2*dx*v) + d*HVM[1, 0] - c*HVM[1, 1] -b*Sol_next[0,0]
-#middle eqs
-for k in range(2, N+1):
-    rhs_b[k-1] = -b*(HVM[k, 1]+2*dx*v) + d*HVM[k, 0] - c*HVM[k, 1]
-#last equation different
-    rhs_b[-1]= -b*(HVM[N, 1]+2*dx*v) + d*HVM[N, 0] - c*HVM[N, 1] - c*Sol_next[N+1,0]
-Sol_next[1:-1,0]=thomas_alg_func(av_b,bv_b,cv_b,rhs_b)
+#rhs_b[0]= -b*(HVM[1, 1]+2*dx*v) + d*HVM[1, 0] - c*HVM[1, 1] -b*Sol_next[0,0]
+##middle eqs
+#for k in range(2, N):
+#    rhs_b[k-1] = -b*(HVM[k, 1]+2*dx*v) + d*HVM[k, 0] - c*HVM[k, 1]
+##last equation different
+#    rhs_b[-1]= -b*(HVM[N, 1]+2*dx*v) + d*HVM[N, 0] - c*HVM[N, 1] - c*Sol_next[N+1,0]
+#Sol_next[1:-1,0]=thomas_alg_func(av_b,bv_b,cv_b,rhs_b)
 
 #now for the next ones, u(j,k) for for j=1,2...N and k=1,2...N)
 
-for j in range(1,N+1): 
+for j in range(0,N+1):
+    k=1
 #for j in range(1,15):  
 #just redifining rhs_every time ever for now while im still trouble shooting   
     rhs_b=np.ones((N))  
@@ -252,10 +253,10 @@ for j in range(1,N+1):
 #first equation different
     rhs_b[0]= -b*HVM[k, j-1] + d*HVM[k, j] - c*HVM[k, j+1] -b*Sol_next[k-1, j]
 #middle eqs
-    for k in range(2, N+1):
+    for k in range(2, N):
         rhs_b[k-1] = -b*HVM[k, j-1] + d*HVM[k, j] - c*HVM[k, j+1]
 #last equation different
-    rhs_b[-1]= -b*HVM[k, j-1] + d*HVM[k, j] - c*HVM[k, j+1]-c*Sol_next[k-1, j]
+    rhs_b[-1]= -b*HVM[N, j-1] + d*HVM[N, j] - c*HVM[N, j+1]-c*Sol_next[N+1, j]
     Sol_next[1:-1,j]=thomas_alg_func(av_b,bv_b,cv_b,rhs_b)
 #    
 #okay the issue is in the HVM, the values just arent correct. I will find what is wrong.
