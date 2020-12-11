@@ -106,9 +106,9 @@ def RIGHT(y, a_x, a_y, b_x, b_y):
 
 #Number of discretized points
 #Number of internal x points
-N_x=18
+N_x=100
 #Number of internal y points
-N_y=18
+N_y=100
 #just using the same number of points for x and y beccareful with this. i will have to go back and change later...maybe    
 N=N_x
     
@@ -292,8 +292,18 @@ for j in range(1,N+1):
 ###plt.plot(y,Sol[4,:],'-.c')
 ###plt.plot(y,HVM[4,:],':r')
 ###plt.plot(y,Sol_next[4,:],'-b')
-#plt.plot(y,Sol_next[:,6],'-b') 
-#plt.plot(y,Sol_next[:,9],':r')
+#bottom    
+#plt.plot(y,Sol_next[0,:],'-b') 
+#plt.plot(y,Sol_next[1,:],':r')
+#top    
+#plt.plot(y,Sol_next[-1,:],'-b') 
+#plt.plot(y,Sol_next[-2,:],':r')
+#left
+#plt.plot(y,Sol_next[:,0],'-b') 
+#plt.plot(y,Sol_next[:,1],':r')
+#right    
+plt.plot(y,Sol_next[:,-1],'-b') 
+plt.plot(y,Sol_next[:,-2],':r')           
 ###    right now I think the issue is in the last equation, the u(N,k) equation
 ##ax.legend(['u(0,y,t^n)','u(x_1,y,t^n+1)'])
 #plt.xlabel('x')
