@@ -106,9 +106,9 @@ def RIGHT(y, a_x, a_y, b_x, b_y):
 
 #Number of discretized points
 #Number of internal x points
-N_x=120
+N_x=100
 #Number of internal y points
-N_y=120
+N_y=100
 #just using the same number of points for x and y beccareful with this. i will have to go back and change later...maybe    
 N=N_x
     
@@ -159,7 +159,7 @@ Sol[1:-1,0]=TPFF(Sol[1:-1,1],Sol[1:-1,2],v,dx)
 
 #first im gonna define the Tridiagonal elements, which are the constants from the Crank Nicolson Scheme
 #also a delta t, and I geuss a D
-dt=0.1
+dt=0.0025
 D=1
 #and dx=dy
 mu=D*dt/(dx*dx)
@@ -313,9 +313,9 @@ def ADI(Sol):
         rhs_b[-1]= -b*HVM[N, j-1] + d*HVM[N, j] - c*HVM[N, j+1]-c*Sol_next[N+1, j]
         Sol_next[1:-1,j]=thomas_alg_func(av_b,bv_b,cv_b,rhs_b)
     return Sol_next
-
-FIRST_STEP=Sol_next.copy()
-for t in range (10000):
+#first Step, just to compare and understand
+FS=Sol_next.copy()
+for t in range (501):
     Sol_next=ADI(Sol_next)
 
 
@@ -349,21 +349,84 @@ for t in range (10000):
 
 
 #plotting 
+#bottom
+fig1, ax1 = plt.subplots()
+plt.grid(1)    
+plt.plot(y,FS[0,:],'-b') 
+plt.plot(y,FS[1,:],':r')
+plt.xlabel('x')
+plt.ylabel('u(x, y)')
+ax1.legend(['u(x, a_y)','u(x, y_1)'])
+ax1.title.set_text('At first time step \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+                   %(round(dx,4),round(dt,4),round(mu,4)))  
+#top
+fig2, ax2 = plt.subplots()
+plt.grid(1)    
+plt.plot(y,FS[-1,:],'-b') 
+plt.plot(y,FS[-2,:],':r')
+plt.xlabel('x')
+plt.ylabel('u(x, y)')
+ax2.legend(['u(x, b_y)','u(x, y_N)'])
+ax2.title.set_text('At first time step \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+                   %(round(dx,4),round(dt,4),round(mu,4)))  
+#left
+fig3, ax3 = plt.subplots()
+plt.grid(1)
+plt.plot(y,FS[:,0],'-b') 
+plt.plot(y,FS[:,1],':r')
+plt.xlabel('y')
+plt.ylabel('u(x, y)')
+ax3.legend(['u(a_x, y)','u(x_1, y)'])
+ax3.title.set_text('At first time step \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+                   %(round(dx,4),round(dt,4),round(mu,4)))  
+#right
+fig4, ax4 = plt.subplots()
+plt.grid(1)    
+plt.plot(y,FS[:,-1],'-b') 
+plt.plot(y,FS[:,-2],':r')     
+plt.xlabel('y')
+plt.ylabel('u(x, y')
+ax3.legend(['u(b_x, y)','u(x_N, y)'])  
+ax3.title.set_text('At first time step \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+                   %(round(dx,4),round(dt,4),round(mu,4)))  
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 #fig, ax = plt.subplots()
 #plt.grid(1)
 ###plt.plot(y,Sol[4,:],'-.c')
 ###plt.plot(y,HVM[4,:],':r')
 ###plt.plot(y,Sol_next[4,:],'-b')
-#bottom    
+##bottom
+#fig1, ax1 = plt.subplots()
+#plt.grid(1)    
 #plt.plot(y,Sol_next[0,:],'-b') 
 #plt.plot(y,Sol_next[1,:],':r')
-#top    
+##top
+#fig2, ax2 = plt.subplots()
+#plt.grid(1)    
 #plt.plot(y,Sol_next[-1,:],'-b') 
 #plt.plot(y,Sol_next[-2,:],':r')
-#left
+##left
+#fig3, ax3 = plt.subplots()
+#plt.grid(1)
 #plt.plot(y,Sol_next[:,0],'-b') 
 #plt.plot(y,Sol_next[:,1],':r')
-#right    
+##right
+#fig4, ax4 = plt.subplots()
+#plt.grid(1)    
 #plt.plot(y,Sol_next[:,-1],'-b') 
 #plt.plot(y,Sol_next[:,-2],':r')           
 ###    right now I think the issue is in the last equation, the u(N,k) equation
@@ -376,3 +439,63 @@ for t in range (10000):
 #                   %(round(dx,4),round(dt,4),round(mu,4)))
 #ax.title.set_text('u(0,y,t^n) and u(x_1,y,t^n+1) \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
 #                   %(round(dx,4),round(dt,4),round(mu,4)))    
+    
+    
+    
+#3D GRAPH
+#from mpl_toolkits import mplot3d
+fig5 = plt.figure()
+ax5 = plt.axes(projection='3d')
+BIGX, BIGY = np.meshgrid(x, y)    
+from matplotlib import cm    
+surf = ax5.plot_surface(BIGX, BIGY, Sol_next, cmap=cm.viridis,
+                       linewidth=0, antialiased=False)
+#fig2.colorbar(surf, shrink=0.75, aspect=5)
+ax5.set_title('u(x,y,t=%s s) \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s '%(round(dt*t,4),round(dx,4),round(dt,4),round(mu,4)))
+ax5.set_xlabel('x')
+ax5.set_ylabel('y')
+ax5.set_zlabel('u')    
+
+
+
+#more plotting
+#bottom
+fig5, ax5 = plt.subplots()
+plt.grid(1)    
+plt.plot(y,Sol_next[0,:],'-b') 
+plt.plot(y,Sol_next[1,:],':r')
+plt.xlabel('x')
+plt.ylabel('u(x, y)')
+ax5.legend(['u(x, a_y)','u(x, y_1)'])
+ax5.title.set_text('At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+                   %(round(dt*t,4),round(dx,4),round(dt,4),round(mu,4)))  
+#top
+fig6, ax6 = plt.subplots()
+plt.grid(1)    
+plt.plot(y,Sol_next[-1,:],'-b') 
+plt.plot(y,Sol_next[-2,:],':r')
+plt.xlabel('x')
+plt.ylabel('u(x, y)')
+ax6.legend(['u(x, b_y)','u(x, y_N)'])
+ax6.title.set_text('At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+                   %(round(dt*t,4), round(dx,4),round(dt,4),round(mu,4)))  
+#left
+fig7, ax7 = plt.subplots()
+plt.grid(1)
+plt.plot(y,Sol_next[:,0],'-b') 
+plt.plot(y,Sol_next[:,1],':r')
+plt.xlabel('y')
+plt.ylabel('u(x, y)')
+ax7.legend(['u(a_x, y)','u(x_1, y)'])
+ax7.title.set_text('At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+                   %(round(dt*t,4), round(dx,4),round(dt,4),round(mu,4)))  
+#right
+fig8, ax8 = plt.subplots()
+plt.grid(1)    
+plt.plot(y,Sol_next[:,-1],'-b') 
+plt.plot(y,Sol_next[:,-2],':r')     
+plt.xlabel('y')
+plt.ylabel('u(x, y')
+ax8.legend(['u(b_x, y)','u(x_N, y)'])  
+ax8.title.set_text('At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+                   %(round(dt*t,4), round(dx,4),round(dt,4),round(mu,4)))  
