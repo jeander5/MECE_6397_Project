@@ -185,7 +185,7 @@ def Set_up(N, dt):
     d = 1 - mu
     return (Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP)
 
-def ADI(Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, F):
+def ADI(Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q):
     """Performs The ADI Method, returns u values at the next time step"""
 #now includes an x input, and a dx input, was needed for the grid convergence
 #This isnt so general right now. It is kinda specific to my problem. Neumann on the left side of domain. 
@@ -241,13 +241,13 @@ def ADI(Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, F):
     
     for k in range(1, N + 1):
     ##first eq different    
-        rhs_a[0] = -b*Sol[k - 1, 0] + d*Sol[k, 0] - c*Sol[k + 1, 0] + GNT
+        rhs_a[0] = -b*Sol[k - 1, 0] + d*Sol[k, 0] - c*Sol[k + 1, 0] + GNT + q[k, 0]
     #    b*v*2*dx from ghost node, even if it is zero
         ##middle eqs
         for j in range(1, N):
-            rhs_a[j] = -b*Sol[k - 1, j] + d*Sol[k, j] - c*Sol[k + 1, j]
+            rhs_a[j] = -b*Sol[k - 1, j] + d*Sol[k, j] - c*Sol[k + 1, j] +q[k, j]
     ##last eq different
-        rhs_a[-1] = -b*Sol[k - 1,-2] + d*Sol[k,-2] - c*Sol[k + 1,-2] - c*HVM[k,-1]   
+        rhs_a[-1] = -b*Sol[k - 1,-2] + d*Sol[k,-2] - c*Sol[k + 1,-2] - c*HVM[k,-1] + q[k, -2] 
         HVM[k, 0:-1] = thomas_alg_func(av, bv, cv, rhs_a)
     # =============================================================================
     # #Step "B" the t=n+1/2 to t=n+1
@@ -262,30 +262,33 @@ def ADI(Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, F):
     #first all the u(0,k) for k=1,2...N)      
     #these are a little different because of the ghost node.
     #first equation different
-    rhs_b[0] = -b*HVM[1, 1]- GNT + d*HVM[1, 0] - c*HVM[1, 1] -b*Sol_next[0, 0]
+    rhs_b[0] = -b*HVM[1, 1]- GNT + d*HVM[1, 0] - c*HVM[1, 1] -b*Sol_next[0, 0]  + q[1, 0]
     #middle eqs
     for k in range(2, N):
-        rhs_b[k-1] = -b*HVM[k, 1] - GNT + d*HVM[k, 0] - c*HVM[k, 1]
+        rhs_b[k-1] = -b*HVM[k, 1] - GNT + d*HVM[k, 0] - c*HVM[k, 1] + q[k, 0]
     #last equation different
-        rhs_b[-1] = -b*HVM[N, 1] - GNT + d*HVM[N, 0] - c*HVM[N, 1] - c*Sol_next[N + 1, 0]
+        rhs_b[-1] = -b*HVM[N, 1] - GNT + d*HVM[N, 0] - c*HVM[N, 1] - c*Sol_next[N + 1, 0] + q[N, 0]
     Sol_next[1:-1, 0] = thomas_alg_func(av_b, bv_b, cv_b, rhs_b)
     
     #now for the next ones, u(j,k) for for j=1,2...N and k=1,2...N)
     for j in range(1, N + 1):
     #first equation different
-        rhs_b[0] = -b*HVM[1, j - 1] + d*HVM[1, j] - c*HVM[1, j + 1] -b*Sol_next[0, j]
+        rhs_b[0] = -b*HVM[1, j - 1] + d*HVM[1, j] - c*HVM[1, j + 1] -b*Sol_next[0, j] + q[1, j]
     #middle eqs
         for k in range(2, N):
-            rhs_b[k-1] = -b*HVM[k, j-1] + d*HVM[k, j] - c*HVM[k, j + 1]
+            rhs_b[k-1] = -b*HVM[k, j-1] + d*HVM[k, j] - c*HVM[k, j + 1] + q[k, j]
     #last equation different
-        rhs_b[-1] = -b*HVM[N, j - 1] + d*HVM[N, j] - c*HVM[N, j + 1] - c*Sol_next[N + 1, j]
+        rhs_b[-1] = -b*HVM[N, j - 1] + d*HVM[N, j] - c*HVM[N, j + 1] - c*Sol_next[N + 1, j] + q[N, j]
         Sol_next[1:-1, j] = thomas_alg_func(av_b, bv_b, cv_b, rhs_b)
     return (Sol_next)
-  
+# =============================================================================
+# Main program here 
+# =============================================================================
+    
 # =============================================================================
 # Grid Convergence. Carreid out for the first time step.
 # =============================================================================
-CLOSE_ENOUGH_GCS = 9*10**-3
+CLOSE_ENOUGH_GCS = 2.5*10**-2
 max_diff = 2 
 #we will start with 8 internal points
 N = 8
@@ -293,15 +296,23 @@ dt = 0.25
 #t=dt
 t=  0
 t_bc = round(4.605/phi)
-steps_bc = round(t_bc/dt)    
+steps_bc = round(t_bc/dt) 
+
 while max_diff>CLOSE_ENOUGH_GCS:
 #for N
     Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP = Set_up(N, dt)
-    Sol_N_next = ADI(Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP) 
+#    this varibale q is for a prescirbed function anad will later overritten for the method of manual solutions.
+#    it is out side the set up function for now.
+#    the input would be (dt*1/2(q(x,y,t_n)+q(x,y,t_n+1))
+    q=np.zeros((TP,TP)) 
+#    q=np.ones((TP,TP)) 
+    Sol_N_next = ADI(Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q) 
 #for 2N    
     N = N + N
     Sol_2N, x_ex, dx_ex, right_um_ex, bottom_um_ex, top_um_ex, mu_ex, a_ex, b_ex, c_ex, d_ex, TP_ex = Set_up(N, dt)
-    Sol_2N_next = ADI(Sol_2N, x_ex, dx_ex, right_um_ex, bottom_um_ex, top_um_ex, mu_ex, a_ex, b_ex, c_ex, d_ex, TP_ex)
+    q=np.zeros((TP_ex,TP_ex))
+#    q=np.ones((TP_ex,TP_ex)) 
+    Sol_2N_next = ADI(Sol_2N, x_ex, dx_ex, right_um_ex, bottom_um_ex, top_um_ex, mu_ex, a_ex, b_ex, c_ex, d_ex, TP_ex, q)
 # Interpolate the values from the 2N grid so the points match up to the same physical location
 #Interpolate the finer grid values to the coarser grid
     the_interloper = interpolate.interp2d(x_ex, x_ex, Sol_2N_next, kind='cubic')
@@ -311,11 +322,11 @@ while max_diff>CLOSE_ENOUGH_GCS:
     max_diff=Diff_Matrix.max()
     print('done')
 print('all done gcs')    
-fig5, ax5 = plt.subplots()
-plt.grid(1)    
-plt.plot(x,Sol_N_next[1,:],'-b') 
-plt.plot(x_ex,Sol_2N_next[1,:],':r')
-plt.plot(x,Sol_int[1,:],':g')
+#fig5, ax5 = plt.subplots()
+#plt.grid(1)    
+#plt.plot(x,Sol_N_next[1,:],'-b') 
+#plt.plot(x_ex,Sol_2N_next[1,:],':r')
+#plt.plot(x,Sol_int[1,:],':g')
 #Doubling the number of grid points resulted in less than "CLOSE ENOUGH' maximum difference between the two solutions
 #We will call this convereged and go back to the previous N value for the steady state solution
 #The 2N grid will serve as our "Exact'" Solution
@@ -337,13 +348,13 @@ t = 0
 
 #we will use the L infity  error with the u^tn+1 as the reference values 
 Linf_error = 2
-CLOSE_ENOUGH_SS = 2.5*10**-4
+CLOSE_ENOUGH_SS = 2.5*10**-1
 ##for the finer grid it takes longer to reach that close enough value, lets think about that....
 while Linf_error > CLOSE_ENOUGH_SS:
 #for m in range(round(steps_bc*6)):
-    Sol_N_next = ADI(Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP)
+    Sol_N_next = ADI(Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q)
     Sol_2N_next = ADI(Sol_2N, x_ex, dx_ex, right_um_ex, bottom_um_ex, top_um_ex,
-                      mu_ex, a_ex, b_ex, c_ex, d_ex, TP_ex)
+                      mu_ex, a_ex, b_ex, c_ex, d_ex, TP_ex, q)
     G1 = abs(Sol_N_next[1:-1, 1:-1] - Sol_N[1:-1, 1:-1])
     Linf_error = G1.max()
     Sol_N = Sol_N_next    
@@ -440,7 +451,7 @@ L2_error=TEST1 = L2_norm(Sol_N[1:-1, 1:-1], Sol_int[1:-1, 1:-1])
 # =============================================================================
 # GCS Plotting
 # =============================================================================
-##t=dt
+#t=dt
 fig8, ax8 = plt.subplots()
 plt.grid(1)    
 plt.plot(x,Sol_N_next[:,-2],'-b') 
