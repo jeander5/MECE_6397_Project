@@ -281,6 +281,45 @@ def ADI(Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q):
         rhs_b[-1] = -b*HVM[N, j - 1] + d*HVM[N, j] - c*HVM[N, j + 1] - c*Sol_next[N + 1, j] + q[N, j]
         Sol_next[1:-1, j] = thomas_alg_func(av_b, bv_b, cv_b, rhs_b)
     return (Sol_next)
+
+def Manufactured_Solution(x, y, t, phi, a_x):
+    """This function returns part of the exact solution for the method of manufactured solutions..."""
+#I am framing this manufactured solution to be similar to my boundary conditions, for example it contains the same
+# term (1-exp(-phi8t)), and also d/dx at x=ax is also zero
+#the variable im using is big Q,
+#Q(x,y,t)=(1-exp(-phi*t)*(cos(x)*sin(y)+5/4pi(x+0.1)(y+0.1))
+#inputs are the arrays x, y, a single t value and the constant phi and the constant ax  
+#I modified this so some of the BCS arent always zero. Always zero is no fun
+    TP = len(x)
+    func_vals = np.zeros((TP, TP))
+    for k in range (TP):
+        row = [(1 - exp(-phi*t))*(cos(x-a_x)*sin(y[k])+1) for x in x]
+        func_vals[k] = row
+    return func_vals
+
+#manufactured solution partial Term
+def MSPT(x, y, t, phi, a_x):
+    """This function returns partial derivative terms for the the method of manufactured solutions..."""
+#I am framing this manufactured solution to be similar to my boundary conditions, for example it contains the same
+# term (1-exp(-phi8t)), and also d/dx at x=ax is also zero
+#the variable im using is big Q,
+#Q(x,y,t)=(1-exp(-phi*t)*(cos(x-ax)*sin(y)+5/4*pi*x+9/64*pi*y) 
+#inputs are the arrays x, y, a single t value and the constant phi    
+    TP = len(x)
+    func_vals = np.zeros((TP, TP))
+    partial_t = np.zeros(TP)
+    partial_x2 = np.zeros(TP)
+    fee_tee = -phi*t
+    uno = (1 - exp(fee_tee))
+
+    for k in range (TP):
+        partial_t[:] = [phi*exp(fee_tee)*(cos(x-a_x)*sin(y[k])+1) for x in x]
+        partial_x2[:] = [-uno*cos(x-a_x)*sin(y[k]) for x in x]
+#        partial y2 is just the same as partial x2
+        row = partial_t - partial_x2 - partial_x2
+        func_vals[k] = row
+    return func_vals
+
 # =============================================================================
 # Main program here 
 # =============================================================================
@@ -288,7 +327,8 @@ def ADI(Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q):
 # =============================================================================
 # Grid Convergence. Carreid out for the first time step.
 # =============================================================================
-CLOSE_ENOUGH_GCS = 2.5*10**-2
+#CLOSE_ENOUGH_GCS = 2.5*10**-2
+CLOSE_ENOUGH_GCS = 0.9
 max_diff = 2 
 #we will start with 8 internal points
 N = 8
@@ -331,8 +371,8 @@ print('all done gcs')
 #We will call this convereged and go back to the previous N value for the steady state solution
 #The 2N grid will serve as our "Exact'" Solution
 #So that the steady state solution will have N grid points, and the "Exact" solution will have 2N grid points.
-#N_final=round(N/2)
-#N_ex=N
+N_final=round(N/2)
+N_ex=N
 
 # =============================================================================
 # Advancing solution forward in time
@@ -348,7 +388,8 @@ t = 0
 
 #we will use the L infity  error with the u^tn+1 as the reference values 
 Linf_error = 2
-CLOSE_ENOUGH_SS = 2.5*10**-1
+#CLOSE_ENOUGH_SS = 2.5*10**-1
+CLOSE_ENOUGH_SS = 0.9
 ##for the finer grid it takes longer to reach that close enough value, lets think about that....
 while Linf_error > CLOSE_ENOUGH_SS:
 #for m in range(round(steps_bc*6)):
@@ -368,8 +409,54 @@ while Linf_error > CLOSE_ENOUGH_SS:
 #   interpolating the finer grid solution to the coarser mesh
 the_interloper = interpolate.interp2d(x_ex, x_ex, Sol_2N, kind='cubic')
 Sol_int = the_interloper(x, x)    
-L1_error=TEST1 = L1_norm(Sol_N[1:-1, 1:-1], Sol_int[1:-1, 1:-1])
-L2_error=TEST1 = L2_norm(Sol_N[1:-1, 1:-1], Sol_int[1:-1, 1:-1])
+L1_error = L1_norm(Sol_N[1:-1, 1:-1], Sol_int[1:-1, 1:-1])
+L2_error = L2_norm(Sol_N[1:-1, 1:-1], Sol_int[1:-1, 1:-1])
+
+# =============================================================================
+# Carry out the Method of Manufactured solution.
+# =============================================================================
+#The I picked my manufactured solution it sill has a Neumann boundary at x=ax, and teh top left and right
+#are called by the same term that the updated problem is,
+#So all I need to do is feed in the new un-modified BC's to my ADI function, 
+#and also the partial terms which are now the forcing term/ prescribed function 
+#getting the unmodified ms solution bondary conditions.  So just feed in a large time value 
+Sol_ms, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP = Set_up(32, dt)
+right_um_ms = Manufactured_Solution(x, x, 1000, phi, a_x)[:, -1]
+#the bottom and top is just zero, but I will keep it around to be general
+#... I think I wanna change the function a bit, always zero is no fun
+bottom_um_ms = Manufactured_Solution(x, x, 1000, phi, a_x)[0, :]
+top_um_ms = Manufactured_Solution(x, x, 1000, phi, a_x)[-1, :]
+#okay wait when I changed the function I no longer have nueman boundary conditions let me
+#okay let me change again
+
+
+#now I dont need to call Set Up function, again I will just use the same grid, but I will set up some blank matrices 
+#Sol_ms=np.zeros((TP,TP))
+#intial condistion is zero for all points, including the boundaries. 
+#For this, I already have the teh analytical solution 
+t=0
+Linf_error_ms = 2
+#CLOSE_ENOUGH_SS = 2.5*10**-1
+CLOSE_ENOUGH_SS = 0.001
+#setting up the forcing fuinction term
+while Linf_error_ms > CLOSE_ENOUGH_SS:
+    q=(1/2)*dt*(MSPT(x, x, t, phi, a_x)+MSPT(x, x, t+dt, phi, a_x))
+    Sol_ms_next = ADI(Sol_ms, x, dx, right_um_ms, bottom_um_ms, top_um_ms, mu, a, b, c, d, TP, q)
+    Sol_ms_ex = Manufactured_Solution(x, x, t+dt, phi, a_x)
+    G1 = abs(Sol_ms_next[1:-1, 1:-1] - Sol_ms[1:-1, 1:-1])
+    Linf_error_ms = G1.max()
+    Sol_ms = Sol_ms_next    
+#advance time
+    t = t + dt
+    print('MS') 
+#And we get the exact solution back on the boundaries because those are prescribed, elsewhere,
+#Like the Nuemann boundary we get the same shape but with dampening
+
+
+
+
+
+
 # ==============================================================================
 # Plotting
 # =============================================================================
@@ -415,19 +502,19 @@ L2_error=TEST1 = L2_norm(Sol_N[1:-1, 1:-1], Sol_int[1:-1, 1:-1])
 #ax8.title.set_text('RIGHT: At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
 #                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
 #
-##3D GRAPH
-#from mpl_toolkits import mplot3d
-#fig10 = plt.figure()
-#ax10 = plt.axes(projection='3d')
-#BIGX, BIGY = np.meshgrid(x, y)    
-#from matplotlib import cm    
-#surf = ax10.plot_surface(BIGX, BIGY, Sol_next, cmap=cm.viridis,
-#                       linewidth=0, antialiased=False)
-##fig2.colorbar(surf, shrink=0.75, aspect=5)
-#ax10.set_title('u(x,y,t=%s s) \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s '%(round(t,4),round(dx,4),round(dt,4),round(mu,4)))
-#ax10.set_xlabel('x')
-#ax10.set_ylabel('y')
-#ax10.set_zlabel('u')    
+#3D GRAPH
+from mpl_toolkits import mplot3d
+fig10 = plt.figure()
+ax10 = plt.axes(projection='3d')
+BIGX, BIGY = np.meshgrid(x, y)    
+from matplotlib import cm    
+surf = ax10.plot_surface(BIGX, BIGY, Sol_next, cmap=cm.viridis,
+                       linewidth=0, antialiased=False)
+#fig2.colorbar(surf, shrink=0.75, aspect=5)
+ax10.set_title('u(x,y,t=%s s) \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s '%(round(t,4),round(dx,4),round(dt,4),round(mu,4)))
+ax10.set_xlabel('x')
+ax10.set_ylabel('y')
+ax10.set_zlabel('u')    
 
 
 #I still get the overshoot, the dip the spike ect.
@@ -452,12 +539,23 @@ L2_error=TEST1 = L2_norm(Sol_N[1:-1, 1:-1], Sol_int[1:-1, 1:-1])
 # GCS Plotting
 # =============================================================================
 #t=dt
+#fig8, ax8 = plt.subplots()
+#plt.grid(1)    
+#plt.plot(x,Sol_N_next[:,1],'-b') 
+#plt.plot(x_ex,Sol_2N_next[:,1],':r')     
+#plt.xlabel('y')
+#plt.ylabel('u(x, y)')
+##ax8.legend(['u(b_x, y), N GridPoints','u(b_x, y) 2N grid points'])  
+#ax8.title.set_text('RIGHT: At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+#                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
+
+#t=dt
 fig8, ax8 = plt.subplots()
 plt.grid(1)    
-plt.plot(x,Sol_N_next[:,-2],'-b') 
-plt.plot(x_ex,Sol_2N_next[:,-2],':r')     
+plt.plot(x,Sol_ms[5,:],'-b') 
+plt.plot(x,Sol_ms_ex[5,:],':r')     
 plt.xlabel('y')
 plt.ylabel('u(x, y)')
 #ax8.legend(['u(b_x, y), N GridPoints','u(b_x, y) 2N grid points'])  
-ax8.title.set_text('RIGHT: At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+ax8.title.set_text('Left: At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
                    %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
