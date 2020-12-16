@@ -4,7 +4,6 @@ Created on Sun Nov 22 11:01:42 2020
 @author: johna
 """
 
-
 # MECE 6397, SciComp, Grad Student Project
 
 # 2-D Diffusion Problem 
@@ -323,6 +322,7 @@ max_diff = 2
 N = 8
 #starting at t=0
 t =  0
+print('START GCS')
 while max_diff>CLOSE_ENOUGH_GCS:
 #for N
     Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP = Set_up(N, dt)
@@ -365,6 +365,7 @@ t = 0
 #we will use the L infity  error with the u^tn+1 as the reference values 
 Linf_error = 2
 CLOSE_ENOUGH_SS = 1*10**-3
+print('START SS')
 while Linf_error > CLOSE_ENOUGH_SS:
 #for m in range(round(3/0.1)): 
     Sol_N_next = ADI(Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q)
@@ -409,8 +410,9 @@ top_um_ms = Manufactured_Solution(x, x, 1000, phi, a_x)[-1, :]
 # resetting time   
 t=0
 Linf_error_ms = 2
-CLOSE_ENOUGH_SS_ms = 1*10**-3
-while Linf_error_ms > CLOSE_ENOUGH_SS:
+CLOSE_ENOUGH_ms = 1*10**-3
+print('START MS')
+while Linf_error_ms > CLOSE_ENOUGH_ms:
     q=1/4*dt*(MSPT(x, x, t, phi, a_x)+MSPT(x, x, t+dt, phi, a_x))
     Sol_ms_next = ADI(Sol_ms, x, dx, right_um_ms, bottom_um_ms, top_um_ms, mu, a, b, c, d, TP, q)
     Sol_ms_ex = Manufactured_Solution(x, x, t+dt, phi, a_x)
@@ -449,14 +451,14 @@ while Linf_error_ms > CLOSE_ENOUGH_SS:
 #ax6.legend(['u(x, b_y, t^n)','u(x, b_y, t^n+1)'])
 #ax6.title.set_text('TOP: At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
 #                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))  
-##left
+#left
 #fig7, ax7 = plt.subplots()
 #plt.grid(1)
-#plt.plot(x,Sol_N[:,0],'-b') 
-#plt.plot(x,Sol_N_next[:,0],':r')
+#plt.plot(x,Sol_ms_next[:,0],'-b') 
+#plt.plot(x,Sol_ms_ex[:,0],':r')
 #plt.xlabel('y')
 #plt.ylabel('u(x, y)')
-#ax7.legend(['u(a_x, y, t^n)','u(a_x, y,t^n+1)'])
+#ax7.legend(['Numerical Solution','Exact Solution'])
 #ax7.title.set_text('LEFT: Neumann Boundary Condition At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
 #                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))  
 ###right
@@ -471,70 +473,22 @@ while Linf_error_ms > CLOSE_ENOUGH_SS:
 #                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
 ###
 ##y=x
-##3D GRAPH
+#3D GRAPH
 #from mpl_toolkits import mplot3d
 #fig10 = plt.figure()
 #ax10 = plt.axes(projection='3d')
 #BIGX, BIGY = np.meshgrid(x, x)    
 #from matplotlib import cm    
-#surf = ax10.plot_surface(BIGX, BIGY, Sol_N, cmap=cm.viridis,
+#surf = ax10.plot_surface(BIGX, BIGY, Sol_ms_next, cmap=cm.viridis,
 #                       linewidth=0, antialiased=False)
 ##fig10.colorbar(surf, shrink=0.75, aspect=5)
 #ax10.set_title('u(x,y,t=%s s) \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s '%(round(t,4),round(dx,4),round(dt,4),round(mu,4)))
 #ax10.set_xlabel('x')
 #ax10.set_ylabel('y')
 #ax10.set_zlabel('u')    
-#ax10.title.set_text('Before Dirichlet Boundary Conditions are Steady \n At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+##ax10.title.set_text('Before Dirichlet Boundary Conditions are Steady \n At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+##                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
+##ax10.title.set_text('Steady State Solution \n At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+##                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
+#ax10.title.set_text('Method of Manufactured Solution \n At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
 #                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
-#ax10.title.set_text('Steady State Solution \n At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
-#                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
-
-#And I should really make a subplot of those left, right, bottom, top, ect
-#I like having the individuals tho, the subplots are too small
-
-# =============================================================================
-# Explicit Scheme
-# =============================================================================
-#EXPLICIT SCHEME:
-#this part of the code was sadly neglected
-#This got messed up and I never fixed    
-#still uses the intiial boundary conditions....I ran out of time to update them.
-#I wanted to focus on the ADI scheme
-#dt_EX=0.01
-#N_EX=32
-##remember this is conditionally stable
-#Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP = Set_up(N, dt_EX)
-#Sol_next=np.ones((TP,TP))
-#uno=(1-4*mu)
-#dos=2*mu
-#GNT_EX=-mu*2*dx*v
-#Linf_error = 2
-#CLOSE_ENOUGH_SS = 1*10**-1
-#t=0
-#while Linf_error > CLOSE_ENOUGH_SS:
-#    for k in range(1,N+1):
-##first eq different because of the ghost node
-#        Sol_next[k,0]=uno*Sol[k,0]+dos*Sol[k,1]+GNT_EX+mu*Sol[k-1,0]+mu*Sol[k+1,0]
-#        for j in range (1,N+1):
-#            Sol_next[k,j] = uno*Sol[k,j]+mu*Sol[k,j-1]+mu*Sol[k,j+1]+mu*Sol[k-1,j]+mu*Sol[k+1,j]
-#   
-#    G1 = abs(Sol[1:-1, 1:-1] - Sol_next[1:-1, 1:-1])
-#    Linf_error = G1.max()
-#    Sol = Sol_next 
-#    t=t+dt
-    
-# =============================================================================
-# #Advance Time to desired solution
-# =============================================================================
-#something is wrong with here too. It was easier jsut to chagne my while loop to a for loop, something is wrong here with
-#the Boundary conditions. I wish I had a litttle more time.    
-#def ATDT (t_desired,dt_desired,N):
-#    t=0
-#    Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP = Set_up(N, dt_desired)
-##no forcing function
-#    q=np.zeros((TP,TP)) 
-#    steps_desired=round(t_desired/dt)
-#    for m in range(1,steps_desired):
-#        Sol_N = ADI(Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q)
-#        t=t+dt_desired    
-#    return(Sol_N, x)    
