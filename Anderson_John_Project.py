@@ -8,12 +8,12 @@ Created on Sun Nov 22 11:01:42 2020
 # MECE 6397, SciComp, Grad Student Project
 
 # 2-D Diffusion Problem 
-#Carryout integration intill steady state solution is reached
-#used ghost node method for nuemann boundary conditions
+#Carryout integration till steady state solution is reached
+#use ghost node method for Neumann boundary conditions
 #https://github.com/jeander5/MECE_6397_Project
-#12/12/2020. UPDATE! Update to project statement. Dirchlet Boundary conditions are functions of time.
-#Need to modifiy the code
-#Modiphy BC with (1-exp(-lamda8t)) imma use phi instead of lamda 
+#12/12/2020. UPDATE! Update to project statement. Dirichlet Boundary conditions are functions of time.
+#Need to modify the code
+#Modify BC with (1-exp(-lamda*t)) I will use phi instead of lambda 
 
 #imports
 import math
@@ -25,32 +25,9 @@ from math import exp as exp
 from scipy import interpolate
 #from mpl_toolkits import mplot3d
 
-#Domain of interest
-#a_x<x<b_x and a_y<y<b_y
-#note not greater than or equal to
-
-a_x = 0 
-a_y = 0
-b_x = 2*math.pi
-b_y = 2*math.pi
-#Boundary Conditions, are now also functions of time
-#TOP: u(x,y=by,t)=f_a(x)
-#BOTTOM: u(x,y=ay,t)=ga(x)
-#LEFT: NEUMANN: dudx(x=ax)=0
-#defining v here to be consistent and changeable
-v = 0
-#RIGHT: This is a the big one 
-#g_a(bx)+(y-a_y)/(b_y-a_y) *[f_a(b_x)-g_a(b_x)]
-#choose a value between 0.05 and 0.5.
-phi = 0.4999
-#Initial conditions, are just zero for all points, INSIDE the boundary
-#U(x,y,t)=0
-#I will still define this.
-Uo = 0
-#defining delta t right here
-dt = 0.1
-
-#Defining Functions
+# =============================================================================
+# Functions
+# =============================================================================
 def thomas_alg_func(a, b, c, f):
     """solves tridiagonal matrix"""
 #inputs are vectors containing the tridiagonal elements and right hand side
@@ -97,47 +74,51 @@ def given_g(x, a):
     func_vals = [cos(x)*(x-a)*(x-a) for x in x]
     return func_vals   
 
-#im gonna call this function RIGHT for now. Is the BC for the right side of the domain
-
 def RIGHT(y, a_x, a_y, b_x, b_y):
     """returns the RIGHT boundary condition values for this problem"""    
-#inputs are the boundary points of the domainand the discretized y values
+#inputs are the boundary points of the domain and the discretized y values
 # I will just break this equation up for now     
     uno = cos(b_x)*(b_x-a_x)*(b_x-a_x)
     dos = [(y-a_y)/(b_y-a_y) for y in y]
     tres = b_x*(b_x - a_x)*(b_x - a_x) - uno
     func_vals = [uno + dos*tres for dos in dos]
     return func_vals
-#updated problem statement...............
-#Okay Im gonna leave those equations as is, store them in an initial vector or matrix i dont care
-#then make a new function for the time dependant part that gets called.
-#that way im not calling 3 functions every time im only calling one
+
+#updated problem statement...............Must Modify the Dirichlet Boundary conditions
 #I will call this function.....BC_Modifier
-#But oh that will have to be called for the Half value matrix and the Sol Next though too, 
 def BC_Modifier(t, phi):
-    """returns the values that scales the Dirchlet Boundary conditions. 
+    """returns the values that scales the Dirichlet Boundary conditions. 
     This is just a value between 0 and 1 """    
-#inputs are the current time step, not time step mind, and the value phi, which is the constant in the exponential
+#inputs are the current time, not the time step mind, and the value phi, which is the constant in the exponential
     func_val = (1 - exp(-phi*t))  
     return func_val
+
 #approximating( u(0,k,t=0) with a three point forward approximation)
+#this is needed if the initial conditions are different
+#to apply the ADI method, the starting end points must be known or calculated
+#this ended up not being needed.    
 def TPFF(col1, col2, v, dx):
+    """returns the values using the Three point forward scheme. """
+#inputs are 2 arrays containing two of the points, the grid spacing, and the Neumann boundary condition v=du/dx     
     N = len(col1)
     col0 = np.ones(N)
     for k in range(0, N):
         col0[k] = -3*col1[k] + 4*col2[k] + v*2*dx
 #        col0[k]=1*k+k*k/N+1.75
     return col0
-#Sol[1:-1,0]=TPFF(Sol[1:-1,1],Sol[1:-1,2],v,dx)
 
 #error functions
 def L1_norm(u, u_ref):
+    """returns the values using the L1 Norm. """
+#inputs are arrays or matrices being compared    
     G = abs((u - u_ref)/u)
     N = len(u)
     L1_error = (1/(N*N))*np.sum(G)
     return L1_error
 
 def L2_norm(u, u_ref):
+    """returns the values using the Three point forward scheme. """
+#inputs are arrays or matrices being compared        
 ##I brought the 1/N^2 out of the summation, all my equations assume dx=dy.
     G = abs((u - u_ref)/u)
     N = len(u)
@@ -146,21 +127,18 @@ def L2_norm(u, u_ref):
     return L2_error
 
 
-# =============================================================================
-# Im just gonna make a set up function
-# =============================================================================
 def Set_up(N, dt):
+    """returns all the local variables that are needed by the ADI scheme for this problem. """
+#the set up function, returns the needed local variables, discretizes, sets up Blank solution matrix, and boundary conditions
+#defines the scheme constanns for the ADI
 #everything  assume the same dx and dy so i will eliminate some duplicate things that were in previous version
-#this also will call a few global variable
 #this would just need to be modified a bit for different problems     
-    x, dx = DIF(b_x, N)
+    x, dx = DIF(b_x-a_x, N)
 #    x=y and dx=dy
 #TP, Total points defined here so they wont need to be calculated else where
     TP = N + 2
-
 #Sol is solution matrix for the nth time step, will be continuosly updated
     Sol = np.ones((TP, TP))
-
 ##Applying Initial condition for internal points
     Sol[1:-1, 1:-1] = Uo
 #Storing Initial "unmodified' Boundary Conditions, subscript um for un modified 
@@ -172,13 +150,10 @@ def Set_up(N, dt):
 ##Bottom
     bottom_um = given_g(x, a_x)
 ##Top
-    top_um = given_f(x, a_x)
-#time for bc to reach steady state dont really need that
-#    t_bc=round(4.605/phi)
-#    steps_bc=round(t_bc/dt)    
-    D = 1
-    mu = D*dt/(dx*dx)
-#tridiagonal constants from the scheme    
+    top_um = given_f(x, a_x) 
+#    D = 1
+    mu = dt/(dx*dx)
+#tridiagonal constants from the ADI scheme    
     a = 1 + mu
     b = -mu/2
     c = -mu/2
@@ -187,26 +162,19 @@ def Set_up(N, dt):
 
 def ADI(Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q):
     """Performs The ADI Method, returns u values at the next time step"""
-#now includes an x input, and a dx input, was needed for the grid convergence
 #This isnt so general right now. It is kinda specific to my problem. Neumann on the left side of domain. 
-#Dirchlet that scale with time but eventually reach steady state
-     
-    # =============================================================================
-    # ADI-Method
-    
-    # =============================================================================
-    # i want this function to be self contained...but its gonna have way to many inputs that way
-    # It will just have to call these defined globally,
-    # =============================================================================
-    
-    # =============================================================================
-    #Defining Half value matrix, for u(t=n+1/2), and Sol_next for u(t=n+1)
+#Dirichlet that scale with time but eventually reach steady state
+ 
+# =============================================================================
+# ADI-Method
+# =============================================================================
+#Defining Half value matrix, for u(t=n+1/2), and Sol_next for u(t=n+1)
     N = TP - 2
     HVM = np.ones((TP, TP))
     Sol_next = np.ones((TP, TP))
 #Now applying boundary conditions to the nth, nth+1/2, and nth plus 1 time step.
-#I feel like this should be done outside the loop, but since I need to do it for the half values I will 
-#do it for the others as well.
+#I feel like this should be done outside the function, but since I need to do it for the half values I will 
+#do it for the others here as as well.
     mod1 = BC_Modifier(t, phi)
     mod2 = BC_Modifier(t + dt/2, phi)
     mod3 = BC_Modifier(t + dt, phi)
@@ -227,33 +195,33 @@ def ADI(Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q):
 #this is the ghost node term that appears in some equations. It is calculate here 
 #so it doesnt have to be repeatedly calculated. For my problem its just zero.    
     GNT = b*2*dx*v
-    # =============================================================================
-    # #Step "A":The t=n to t=n+ 1/2 step
-    # =============================================================================
+# =============================================================================
+# #Step "A":The t=n to t=n+ 1/2 step
+# =============================================================================
     rhs_a = np.ones(N + 1)
     #rhs for step a is (N+1) because of the ghost node
     #Pre thomas algorithm set up
     av = [a]*(N + 1)
     bv = [b]*(N + 1)
     cv = [c]*(N + 1)
-    #different first input because of ghost node
+#different first input because of ghost node
     cv[0] = b + c 
     
     for k in range(1, N + 1):
-    ##first eq different    
+##first eq different    
         rhs_a[0] = -b*Sol[k - 1, 0] + d*Sol[k, 0] - c*Sol[k + 1, 0] + GNT + q[k, 0]
-    #    b*v*2*dx from ghost node, even if it is zero
-        ##middle eqs
+##middle eqs
         for j in range(1, N):
             rhs_a[j] = -b*Sol[k - 1, j] + d*Sol[k, j] - c*Sol[k + 1, j] +q[k, j]
-    ##last eq different
-        rhs_a[-1] = -b*Sol[k - 1,-2] + d*Sol[k,-2] - c*Sol[k + 1,-2] - c*HVM[k,-1] + q[k, -2] 
+##last eq different
+        rhs_a[-1] = -b*Sol[k - 1, -2] + d*Sol[k, -2] - c*Sol[k + 1, -2] - c*HVM[k,-1] + q[k, -2] 
         HVM[k, 0:-1] = thomas_alg_func(av, bv, cv, rhs_a)
     # =============================================================================
     # #Step "B" the t=n+1/2 to t=n+1
     # =============================================================================
     #must solve one column at a time to preserve tridiagonal structure
-    #I would have to modify every Nth element of the b and c vectors, is fine for now
+    #otherwise 
+#    I would have to modify every Nth element of the b and c vectors, is fine for now
     #okay rhs b still is N long, I just need to do the steps N+1 one times    
     rhs_b = np.ones(N)
     av_b = [a]*(N)
@@ -282,38 +250,37 @@ def ADI(Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q):
         Sol_next[1:-1, j] = thomas_alg_func(av_b, bv_b, cv_b, rhs_b)
     return (Sol_next)
 
+
 def Manufactured_Solution(x, y, t, phi, a_x):
-    """This function returns part of the exact solution for the method of manufactured solutions..."""
+    """This function exact solution for the method of manufactured solutions..."""
 #I am framing this manufactured solution to be similar to my boundary conditions, for example it contains the same
-# term (1-exp(-phi8t)), and also d/dx at x=ax is also zero
+# term (1-exp(-phi*t)), and du/dx at x=a_x is also zero
 #the variable im using is big Q,
-#Q(x,y,t)=(1-exp(-phi*t)*(cos(x)*sin(y)+5/4pi(x+0.1)(y+0.1))
-#inputs are the arrays x, y, a single t value and the constant phi and the constant ax  
+#Q(x,y,t)=(1-exp(-phi*t)*(cos(x-ax)*sin(y)+y)) 
+#inputs are the arrays x, y, a single t value and the constant phi and the constant a_x  
 #I modified this so some of the BCS arent always zero. Always zero is no fun
     TP = len(x)
     func_vals = np.zeros((TP, TP))
+    uno = (1 - exp(-phi*t))
     for k in range (TP):
-        row = [(1 - exp(-phi*t))*(cos(x-a_x)*sin(y[k])+1) for x in x]
+        row = [uno*(cos(x-a_x)*sin(y[k])+(y[k]-0.25)) for x in x]
         func_vals[k] = row
     return func_vals
 
-#manufactured solution partial Term
+#manufactured solution partial terms
 def MSPT(x, y, t, phi, a_x):
     """This function returns partial derivative terms for the the method of manufactured solutions..."""
 #I am framing this manufactured solution to be similar to my boundary conditions, for example it contains the same
-# term (1-exp(-phi8t)), and also d/dx at x=ax is also zero
-#the variable im using is big Q,
-#Q(x,y,t)=(1-exp(-phi*t)*(cos(x-ax)*sin(y)+5/4*pi*x+9/64*pi*y) 
 #inputs are the arrays x, y, a single t value and the constant phi    
+#these terms act a forcing function to the original diffusion equation    
     TP = len(x)
     func_vals = np.zeros((TP, TP))
     partial_t = np.zeros(TP)
     partial_x2 = np.zeros(TP)
     fee_tee = -phi*t
     uno = (1 - exp(fee_tee))
-
     for k in range (TP):
-        partial_t[:] = [phi*exp(fee_tee)*(cos(x-a_x)*sin(y[k])+1) for x in x]
+        partial_t[:] = [phi*exp(fee_tee)*(cos(x-a_x)*sin(y[k])+(y[k]-math.pi)*5) for x in x]
         partial_x2[:] = [-uno*cos(x-a_x)*sin(y[k]) for x in x]
 #        partial y2 is just the same as partial x2
         row = partial_t - partial_x2 - partial_x2
@@ -323,21 +290,39 @@ def MSPT(x, y, t, phi, a_x):
 # =============================================================================
 # Main program here 
 # =============================================================================
-    
 # =============================================================================
-# Grid Convergence. Carreid out for the first time step.
+# Global variables
 # =============================================================================
-#CLOSE_ENOUGH_GCS = 2.5*10**-2
-CLOSE_ENOUGH_GCS = 0.9
+#Domain of interest
+#a_x<x<b_x and a_y<y<b_y
+#note not greater than or equal to
+a_x = 0 
+a_y = 0
+b_x = 2*math.pi
+b_y = 2*math.pi
+#Boundary Conditions, are now also functions of time
+#TOP: u(x,y=by,t)=f_a(x)
+#BOTTOM: u(x,y=ay,t)=ga(x)
+#LEFT: NEUMANN: dudx(x=ax)=0
+#defining v here to be consistent and changeable
+v = 0
+#phi, used in the Dirichlet Boundary Conditions
+phi = 0.4999
+#Initial conditions, are just zero for all points, INSIDE the boundary
+#U(x,y,t)=0
+#I will still define this.
+Uo = 0
+#defining delta t right here
+dt = 0.1  
+# =============================================================================
+# Grid Convergence. Carreid out at the first time step.
+# =============================================================================
+CLOSE_ENOUGH_GCS = 1*10**-3
 max_diff = 2 
 #we will start with 8 internal points
 N = 8
-dt = 0.25
-#t=dt
-t=  0
-t_bc = round(4.605/phi)
-steps_bc = round(t_bc/dt) 
-
+#starting at t=0
+t =  0
 while max_diff>CLOSE_ENOUGH_GCS:
 #for N
     Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP = Set_up(N, dt)
@@ -360,39 +345,28 @@ while max_diff>CLOSE_ENOUGH_GCS:
 #find the biggest difference between the solutions    
     Diff_Matrix=abs(Sol_N_next[1:-1, 1:-1] - Sol_int[1:-1, 1:-1])
     max_diff=Diff_Matrix.max()
-    print('done')
-print('all done gcs')    
-#fig5, ax5 = plt.subplots()
-#plt.grid(1)    
-#plt.plot(x,Sol_N_next[1,:],'-b') 
-#plt.plot(x_ex,Sol_2N_next[1,:],':r')
-#plt.plot(x,Sol_int[1,:],':g')
+
+
 #Doubling the number of grid points resulted in less than "CLOSE ENOUGH' maximum difference between the two solutions
 #We will call this convereged and go back to the previous N value for the steady state solution
 #The 2N grid will serve as our "Exact'" Solution
 #So that the steady state solution will have N grid points, and the "Exact" solution will have 2N grid points.
+#N-final is just for reference,
 N_final=round(N/2)
 N_ex=N
 
 # =============================================================================
 # Advancing solution forward in time
 # =============================================================================
-#initial time=0
+#resetting time
 t = 0
-#I actually dont need to call the setup functions again, thet are ready to go/
-#setting up the solution and the "exact" solution inputs
-#Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP = Set_up(N_final, dt)
-#subscript_ex for exact
-#(Sol_2N, x_ex, dx_ex, right_um_ex, bottom_um_ex, top_um_ex, 
-#mu_ex, a_ex, b_ex, c_ex, d_ex, TP_ex) = Set_up(N_ex, dt)
+#I actually dont need to call the setup functions again, they are ready to go
 
 #we will use the L infity  error with the u^tn+1 as the reference values 
 Linf_error = 2
-#CLOSE_ENOUGH_SS = 2.5*10**-1
-CLOSE_ENOUGH_SS = 0.9
-##for the finer grid it takes longer to reach that close enough value, lets think about that....
+CLOSE_ENOUGH_SS = 1*10**-3
 while Linf_error > CLOSE_ENOUGH_SS:
-#for m in range(round(steps_bc*6)):
+#for m in range(round(3/0.1)): 
     Sol_N_next = ADI(Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q)
     Sol_2N_next = ADI(Sol_2N, x_ex, dx_ex, right_um_ex, bottom_um_ex, top_um_ex,
                       mu_ex, a_ex, b_ex, c_ex, d_ex, TP_ex, q)
@@ -402,45 +376,42 @@ while Linf_error > CLOSE_ENOUGH_SS:
     Sol_2N = Sol_2N_next  
 #advance time
     t = t + dt
-    print('HEY THERE')
+
 # =============================================================================
 # Calculating error 
 # =============================================================================
-#   interpolating the finer grid solution to the coarser mesh
+#interpolating the finer grid solution to the coarser mesh
 the_interloper = interpolate.interp2d(x_ex, x_ex, Sol_2N, kind='cubic')
 Sol_int = the_interloper(x, x)    
 L1_error = L1_norm(Sol_N[1:-1, 1:-1], Sol_int[1:-1, 1:-1])
 L2_error = L2_norm(Sol_N[1:-1, 1:-1], Sol_int[1:-1, 1:-1])
 
 # =============================================================================
-# Carry out the Method of Manufactured solution.
+# Method of Manufactured solution. Uncomment and run as needed
 # =============================================================================
-#The I picked my manufactured solution it sill has a Neumann boundary at x=ax, and teh top left and right
-#are called by the same term that the updated problem is,
+
+#The way I picked my manufactured solution it sill has a Neumann boundary at x=ax, and the top left and right
+#are scalled by the same term that the updated problem is,
 #So all I need to do is feed in the new un-modified BC's to my ADI function, 
 #and also the partial terms which are now the forcing term/ prescribed function 
 #getting the unmodified ms solution bondary conditions.  So just feed in a large time value 
 Sol_ms, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP = Set_up(32, dt)
 right_um_ms = Manufactured_Solution(x, x, 1000, phi, a_x)[:, -1]
-#the bottom and top is just zero, but I will keep it around to be general
-#... I think I wanna change the function a bit, always zero is no fun
+##the bottom and top are just zero, but I will keep it around to be general
 bottom_um_ms = Manufactured_Solution(x, x, 1000, phi, a_x)[0, :]
 top_um_ms = Manufactured_Solution(x, x, 1000, phi, a_x)[-1, :]
-#okay wait when I changed the function I no longer have nueman boundary conditions let me
-#okay let me change again
 
 
 #now I dont need to call Set Up function, again I will just use the same grid, but I will set up some blank matrices 
 #Sol_ms=np.zeros((TP,TP))
 #intial condistion is zero for all points, including the boundaries. 
-#For this, I already have the teh analytical solution 
+#For this, I already have the the analytical solution 
+# resetting time   
 t=0
 Linf_error_ms = 2
-#CLOSE_ENOUGH_SS = 2.5*10**-1
-CLOSE_ENOUGH_SS = 0.001
-#setting up the forcing fuinction term
+CLOSE_ENOUGH_SS_ms = 1*10**-3
 while Linf_error_ms > CLOSE_ENOUGH_SS:
-    q=(1/2)*dt*(MSPT(x, x, t, phi, a_x)+MSPT(x, x, t+dt, phi, a_x))
+    q=1/4*dt*(MSPT(x, x, t, phi, a_x)+MSPT(x, x, t+dt, phi, a_x))
     Sol_ms_next = ADI(Sol_ms, x, dx, right_um_ms, bottom_um_ms, top_um_ms, mu, a, b, c, d, TP, q)
     Sol_ms_ex = Manufactured_Solution(x, x, t+dt, phi, a_x)
     G1 = abs(Sol_ms_next[1:-1, 1:-1] - Sol_ms[1:-1, 1:-1])
@@ -450,112 +421,120 @@ while Linf_error_ms > CLOSE_ENOUGH_SS:
     t = t + dt
     print('MS') 
 #And we get the exact solution back on the boundaries because those are prescribed, elsewhere,
-#Like the Nuemann boundary we get the same shape but with dampening
-
-
-
-
-
 
 # ==============================================================================
-# Plotting
+# Plotting, uncomment and modify as needed to make images for the report
 # =============================================================================
 #bottom
+#x, dx = DIF(b_x, N_final)
 #y=x
+#y_ex=x_ex
+    
 #fig5, ax5 = plt.subplots()
 #plt.grid(1)    
-#plt.plot(y,Sol_next[0,:],'-b') 
-#plt.plot(y,Sol_next[1,:],':r')
+#plt.plot(x,Sol_N[0,:],'-b') 
+#plt.plot(x,Sol_N_next[0,:],':r')
 #plt.xlabel('x')
 #plt.ylabel('u(x, y)')
-#ax5.legend(['u(x, a_y)','u(x, y_1)'])
+#ax5.legend(['u(x, a_y)','u(x, a_y)'])
 #ax5.title.set_text('BOTTOM At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
 #                   %(round(t,4),round(dx,4),round(dt,4),round(mu,4)))  
-##top
+###top
 #fig6, ax6 = plt.subplots()
 #plt.grid(1)    
-#plt.plot(y,Sol_next[-1,:],'-b') 
-#plt.plot(y,Sol_next[-2,:],':r')
+#plt.plot(x,Sol_N[-1,:],'-b') 
+#plt.plot(x,Sol_N_next[-1,:],':r')
 #plt.xlabel('x')
-#plt.ylabel('u(x, y)')
-#ax6.legend(['u(x, b_y)','u(x, y_N)'])
+#plt.ylabel('u(x, b_y)')
+#ax6.legend(['u(x, b_y, t^n)','u(x, b_y, t^n+1)'])
 #ax6.title.set_text('TOP: At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
 #                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))  
 ##left
 #fig7, ax7 = plt.subplots()
 #plt.grid(1)
-#plt.plot(x,Sol_next[:,0],'-b') 
-#plt.plot(x,Sol_next[:,1],':r')
+#plt.plot(x,Sol_N[:,0],'-b') 
+#plt.plot(x,Sol_N_next[:,0],':r')
 #plt.xlabel('y')
 #plt.ylabel('u(x, y)')
-#ax7.legend(['u(a_x, y)','u(x_1, y)'])
-#ax7.title.set_text('LEFT: At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+#ax7.legend(['u(a_x, y, t^n)','u(a_x, y,t^n+1)'])
+#ax7.title.set_text('LEFT: Neumann Boundary Condition At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
 #                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))  
-##right
+###right
 #fig8, ax8 = plt.subplots()
 #plt.grid(1)    
-#plt.plot(x,Sol_next[:,-1],'-b') 
-#plt.plot(x,Sol_next[:,-2],':r')     
+#plt.plot(x,Sol_N[:,-1],'-b') 
+#plt.plot(x,Sol_N_next[:,-1],':r')   
 #plt.xlabel('y')
 #plt.ylabel('u(x, y)')
-#ax8.legend(['u(b_x, y)','u(x_N, y)'])  
+#ax8.legend(['u(b_x, y, t^n)','u(=b_x, y,t^n+1)'])
 #ax8.title.set_text('RIGHT: At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
 #                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
-#
-#3D GRAPH
-from mpl_toolkits import mplot3d
-fig10 = plt.figure()
-ax10 = plt.axes(projection='3d')
-BIGX, BIGY = np.meshgrid(x, y)    
-from matplotlib import cm    
-surf = ax10.plot_surface(BIGX, BIGY, Sol_next, cmap=cm.viridis,
-                       linewidth=0, antialiased=False)
-#fig2.colorbar(surf, shrink=0.75, aspect=5)
-ax10.set_title('u(x,y,t=%s s) \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s '%(round(t,4),round(dx,4),round(dt,4),round(mu,4)))
-ax10.set_xlabel('x')
-ax10.set_ylabel('y')
-ax10.set_zlabel('u')    
+###
+##y=x
+##3D GRAPH
+#from mpl_toolkits import mplot3d
+#fig10 = plt.figure()
+#ax10 = plt.axes(projection='3d')
+#BIGX, BIGY = np.meshgrid(x, x)    
+#from matplotlib import cm    
+#surf = ax10.plot_surface(BIGX, BIGY, Sol_N, cmap=cm.viridis,
+#                       linewidth=0, antialiased=False)
+##fig10.colorbar(surf, shrink=0.75, aspect=5)
+#ax10.set_title('u(x,y,t=%s s) \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s '%(round(t,4),round(dx,4),round(dt,4),round(mu,4)))
+#ax10.set_xlabel('x')
+#ax10.set_ylabel('y')
+#ax10.set_zlabel('u')    
+#ax10.title.set_text('Before Dirichlet Boundary Conditions are Steady \n At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+#                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
+#ax10.title.set_text('Steady State Solution \n At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
+#                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
 
-
-#I still get the overshoot, the dip the spike ect.
-#I really dont think it is a coding error.
-#I think the its just an error from having too big a time step, the scheme is still stable and will reach a steady state solution
-#Its going from zero to like 20 in one time step
-#If it is a coding error I would be very interested in knowing where and what it was
-#And why for small mu it does not occur.
-#what that little dip will do is make my error bigger and make me run more time steps that i really need to reach steady state
-#whart if I try a big mu but a small time? Same
-#It must be an error somewhere I just cant see it.
-#It is interesting to compare the first time step to the second
-#oh shoot wait I just fixed it. When I was just running it I was applying the boundary conditions a step ahead.
-#ok nice
-#so it still is an accuracy kinda in the scheme with too big a time step I think
-#where did my 3d plot go???/
-#And I should really make a subplot of those left right bottom top ect
+#And I should really make a subplot of those left, right, bottom, top, ect
 #I like having the individuals tho, the subplots are too small
 
-
 # =============================================================================
-# GCS Plotting
+# Explicit Scheme
 # =============================================================================
-#t=dt
-#fig8, ax8 = plt.subplots()
-#plt.grid(1)    
-#plt.plot(x,Sol_N_next[:,1],'-b') 
-#plt.plot(x_ex,Sol_2N_next[:,1],':r')     
-#plt.xlabel('y')
-#plt.ylabel('u(x, y)')
-##ax8.legend(['u(b_x, y), N GridPoints','u(b_x, y) 2N grid points'])  
-#ax8.title.set_text('RIGHT: At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
-#                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
-
-#t=dt
-fig8, ax8 = plt.subplots()
-plt.grid(1)    
-plt.plot(x,Sol_ms[5,:],'-b') 
-plt.plot(x,Sol_ms_ex[5,:],':r')     
-plt.xlabel('y')
-plt.ylabel('u(x, y)')
-#ax8.legend(['u(b_x, y), N GridPoints','u(b_x, y) 2N grid points'])  
-ax8.title.set_text('Left: At t= %s s \n $\Delta$x=$\Delta$y=%s units, $\Delta$ t= %s s, $\mu$= %s'
-                   %(round(t,4), round(dx,4),round(dt,4),round(mu,4)))
+#EXPLICIT SCHEME:
+#this part of the code was sadly neglected
+#This got messed up and I never fixed    
+#still uses the intiial boundary conditions....I ran out of time to update them.
+#I wanted to focus on the ADI scheme
+#dt_EX=0.01
+#N_EX=32
+##remember this is conditionally stable
+#Sol, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP = Set_up(N, dt_EX)
+#Sol_next=np.ones((TP,TP))
+#uno=(1-4*mu)
+#dos=2*mu
+#GNT_EX=-mu*2*dx*v
+#Linf_error = 2
+#CLOSE_ENOUGH_SS = 1*10**-1
+#t=0
+#while Linf_error > CLOSE_ENOUGH_SS:
+#    for k in range(1,N+1):
+##first eq different because of the ghost node
+#        Sol_next[k,0]=uno*Sol[k,0]+dos*Sol[k,1]+GNT_EX+mu*Sol[k-1,0]+mu*Sol[k+1,0]
+#        for j in range (1,N+1):
+#            Sol_next[k,j] = uno*Sol[k,j]+mu*Sol[k,j-1]+mu*Sol[k,j+1]+mu*Sol[k-1,j]+mu*Sol[k+1,j]
+#   
+#    G1 = abs(Sol[1:-1, 1:-1] - Sol_next[1:-1, 1:-1])
+#    Linf_error = G1.max()
+#    Sol = Sol_next 
+#    t=t+dt
+    
+# =============================================================================
+# #Advance Time to desired solution
+# =============================================================================
+#something is wrong with here too. It was easier jsut to chagne my while loop to a for loop, something is wrong here with
+#the Boundary conditions. I wish I had a litttle more time.    
+#def ATDT (t_desired,dt_desired,N):
+#    t=0
+#    Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP = Set_up(N, dt_desired)
+##no forcing function
+#    q=np.zeros((TP,TP)) 
+#    steps_desired=round(t_desired/dt)
+#    for m in range(1,steps_desired):
+#        Sol_N = ADI(Sol_N, x, dx, right_um, bottom_um, top_um, mu, a, b, c, d, TP, q)
+#        t=t+dt_desired    
+#    return(Sol_N, x)    
